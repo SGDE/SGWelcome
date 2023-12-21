@@ -24,19 +24,22 @@ GtkWidget *notebook;
 
 int checkname(const char *str)
 {
-    while (*str) {
-        if (!isdigit(*str)) {
-            return 0; // No es un número
-        }
-        str++;
-    }
-    return 1; // Es un número
+	while (*str)
+	{
+		if (!isdigit(*str))
+		{
+			return 0;
+		}
+		str++;
+	}
+	return 1;
 }
+
 void load_folder_list(const char *notes_path, GtkWidget *parent_notebook, int parent_page)
 {
 	DIR *dir;
 	struct dirent *entry;
-
+	//Stage 1: read the master dir to create tabs
 	if ((dir = opendir(notes_path)) != NULL)
 	{
 		while ((entry = readdir(dir)) != NULL)
@@ -74,7 +77,7 @@ void load_folder_list(const char *notes_path, GtkWidget *parent_notebook, int pa
 
 					DIR *subdir;
 					struct dirent *subentry;
-
+					//Stage 2: read /$master_folder/$tab/* to create labels
 					if ((subdir = opendir(subfolder_path)) != NULL)
 					{
 						while ((subentry = readdir(subdir)) != NULL)
@@ -105,6 +108,7 @@ void load_folder_list(const char *notes_path, GtkWidget *parent_notebook, int pa
 								gtk_label_set_markup(GTK_LABEL(label_content), content);
 								gtk_grid_attach(GTK_GRID(notebook_grid), label_content, 0, position, 1, 1);
 							}
+							//Stage 3: read /$masterdata/$tab/data/* to create images and entries
 							else if (subentry->d_type == DT_DIR && strcmp(subentry->d_name, "data") == 0)
 							{
 								// Handle "data" directory
@@ -127,98 +131,96 @@ void load_folder_list(const char *notes_path, GtkWidget *parent_notebook, int pa
 
 											GdkPixbuf *pixbuf = gdk_pixbuf_new_from_file(cfile, NULL);
 											int position = atoi(infilename);
-											if (pixbuf != NULL)
+											if (pixbuf != NULL && checkname(infilename))
 											{
 												GtkWidget *image = gtk_image_new_from_pixbuf(pixbuf);
 												gtk_grid_attach(GTK_GRID(notebook_grid), image, 1, position, 1, 1);
 												g_object_unref(pixbuf);
 											}
 										}
+										//Stage 3.5: this is about the entries
 										if (data_entry->d_type == DT_DIR)
 										{
-	DIR *indir;
-	struct dirent *inentry;
-	const char *infilename = data_entry->d_name;
-	snprintf(current_folder, sizeof(current_folder), "%s/%s/data/%s", notes_path, filename, infilename);
-	if (checkname(infilename) && (indir = opendir(current_folder)) != NULL) 
-	{
-		while ((inentry = readdir(indir)) != NULL)
-		{
-			if (inentry->d_type == DT_REG) // Disable showing directories
-			{
-				g_print("\n\n\n");
-				g_print("current_folder:\n");
-				g_print(current_folder);
-				g_print("\n\n\n");
-				char cfile[9999];
-				const char *rinfilename = inentry->d_name;
-
-				snprintf(cfile, sizeof(cfile), "%s/%s", current_folder, rinfilename );
-				g_print("Next File:\n");
-				g_print(cfile);
-				FILE *file = fopen(cfile, "r");
-
-				char line[ML];
-				char ActName[ML];
-				char ActNote[ML];
-				char ActNotif[ML];
-				char ActIcon[ML];
-
-				while (fgets(line, sizeof(line), file) != NULL)
-				{
-					char *name = strtok(line, "=");
-					char *value_str = strtok(NULL, "=");
-
-					if (name != NULL && value_str != NULL)
-					{
-						// Set the value of the corresponding variable based on the name
-						if (strcmp(name, "Name") == 0)
-						{
-							strncpy(ActName, value_str, sizeof(ActName));
-						}
-						else if (strcmp(name, "Comment") == 0)
-						{
-							strncpy(ActNote, value_str, sizeof(ActNote));
-						}
-						else if (strcmp(name, "Icon") == 0)
-						{
-							strncpy(ActIcon, value_str, sizeof(ActIcon));
-							// fix GtkIcon deleting newline
-								char *newline = strchr(ActIcon, '\n');
-								if (newline != NULL)
-								{
-									*newline = '\0'; 
-								}
-						}
-						else if (strcmp(name, "Exec") == 0)
-						{
-							strncpy(ActNotif, value_str, sizeof(ActNotif));
-						}
-					}
-				}
-
-
-GtkWidget *ingrid = gtk_grid_new();
-gtk_grid_set_column_homogeneous(GTK_GRID(ingrid), TRUE);
-gtk_grid_set_row_spacing(GTK_GRID(ingrid), 5);
-GtkWidget *icon = gtk_image_new_from_icon_name(ActIcon, GTK_ICON_SIZE_MENU);
-GtkWidget *label_filename = gtk_label_new(ActName);
-GtkWidget *label_time = gtk_label_new(ActNote);
-GtkWidget *Installbutton = gtk_button_new_with_label("Install");
-
-gtk_grid_attach(GTK_GRID(ingrid), icon, 0, 0, 1, 1);
-gtk_grid_attach(GTK_GRID(ingrid), label_filename, 1, 0, 1, 1);
-gtk_grid_attach(GTK_GRID(ingrid), label_time, 2, 0, 1, 1);
-gtk_grid_attach(GTK_GRID(ingrid), Installbutton, 3, 0, 1, 1);
-
-int position = atoi(infilename);
-gtk_list_box_insert(GTK_LIST_BOX(list), ingrid, -1);
-gtk_grid_attach(GTK_GRID(notebook_grid), scrolled_list, 0, position, 2, 1);
-			}
-		}
-		closedir(indir);
-	}
-
+											DIR *indir;
+											struct dirent *inentry;
+											const char *infilename = data_entry->d_name;
+											snprintf(current_folder, sizeof(current_folder), "%s/%s/data/%s", notes_path, filename, infilename);
+											if (checkname(infilename) && (indir = opendir(current_folder)) != NULL) 
+											{
+												while ((inentry = readdir(indir)) != NULL)
+												{
+													if (inentry->d_type == DT_REG) // Disable showing directories
+													{
+														g_print("\n\n\n");
+														g_print("current_folder:\n");
+														g_print(current_folder);
+														g_print("\n\n\n");
+														char cfile[9999];
+														const char *rinfilename = inentry->d_name;
+										
+														snprintf(cfile, sizeof(cfile), "%s/%s", current_folder, rinfilename );
+														g_print("Next File:\n");
+														g_print(cfile);
+														FILE *file = fopen(cfile, "r");
+										
+														char line[ML];
+														char ActName[ML];
+														char ActNote[ML];
+														char ActNotif[ML];
+														char ActIcon[ML];
+										
+														while (fgets(line, sizeof(line), file) != NULL)
+														{
+															char *name = strtok(line, "=");
+															char *value_str = strtok(NULL, "=");
+										
+															if (name != NULL && value_str != NULL)
+															{
+																// Set the value of the corresponding variable based on the name
+																if (strcmp(name, "Name") == 0)
+																{
+																	strncpy(ActName, value_str, sizeof(ActName));
+																}
+																else if (strcmp(name, "Comment") == 0)
+																{
+																	strncpy(ActNote, value_str, sizeof(ActNote));
+																}
+																else if (strcmp(name, "Icon") == 0)
+																{
+																	strncpy(ActIcon, value_str, sizeof(ActIcon));
+																	// fix GtkIcon deleting newline
+																		char *newline = strchr(ActIcon, '\n');
+																		if (newline != NULL)
+																		{
+																			*newline = '\0'; 
+																		}
+																}
+																else if (strcmp(name, "Exec") == 0)
+																{
+																	strncpy(ActNotif, value_str, sizeof(ActNotif));
+																}
+															}
+														}
+														GtkWidget *ingrid = gtk_grid_new();
+														gtk_grid_set_column_homogeneous(GTK_GRID(ingrid), TRUE);
+														gtk_grid_set_row_spacing(GTK_GRID(ingrid), 5);
+														GtkWidget *icon = gtk_image_new_from_icon_name(ActIcon, GTK_ICON_SIZE_MENU);
+														GtkWidget *label_filename = gtk_label_new(ActName);
+														GtkWidget *label_time = gtk_label_new(ActNote);
+														GtkWidget *Installbutton = gtk_button_new_with_label("Install");
+														
+														gtk_grid_attach(GTK_GRID(ingrid), icon, 0, 0, 1, 1);
+														gtk_grid_attach(GTK_GRID(ingrid), label_filename, 1, 0, 1, 1);
+														gtk_grid_attach(GTK_GRID(ingrid), label_time, 2, 0, 1, 1);
+														gtk_grid_attach(GTK_GRID(ingrid), Installbutton, 3, 0, 1, 1);
+														
+														int position = atoi(infilename);
+														gtk_list_box_insert(GTK_LIST_BOX(list), ingrid, -1);
+														gtk_grid_attach(GTK_GRID(notebook_grid), scrolled_list, 0, position, 2, 1);
+													}
+												}
+												closedir(indir);
+											}
 										}
 									}
 									closedir(data_dir);
@@ -300,10 +302,6 @@ void readconf()
 								*newline = '\0'; 
 							}
 					}
-					else if (strcmp(name, "format") == 0) 
-					{
-						format = atoi(value_str);
-					}
 					else if (strcmp(name, "tabposition") == 0) 
 					{
 						tabposition = atoi(value_str);
@@ -317,6 +315,6 @@ void readconf()
 	{
 		printf("Error opening file");
 	}
-	printf("distrotitle: %s\ndistrologo: %s\nmainfolder: %s\nformat: %d\ntabposition: %d\n",
-			distrotitle,distrologo,mainfolder,format,tabposition);
+	printf("distrotitle: %s\ndistrologo: %s\nmainfolder: %s\ntabposition: %d\n",
+			distrotitle,distrologo,mainfolder,tabposition);
 }
